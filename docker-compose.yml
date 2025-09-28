@@ -1,0 +1,41 @@
+services:
+  auth-service:
+    build:
+      context: ./services/auth-service
+    env_file:
+      - ./services/auth-service/.env
+    ports:
+      - "6001:5001"
+    restart: unless-stopped
+
+  orders-service:
+    build:
+      context: ./services/orders-service
+    env_file:
+      - ./services/orders-service/.env
+    ports:
+      - "6002:5002"
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        AUTH_SERVICE_URL: http://auth-service:5001
+        ORDERS_SERVICE_URL: http://orders-service:5002
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:5001
+      ORDERS_SERVICE_URL: http://orders-service:5002
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - orders-service
+
+networks:
+  default:
+    name: uchfyd-network
