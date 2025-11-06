@@ -42,6 +42,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     const principal = req.user!;
     let orders;
     if (principal.role === 'admin') {
+      // Admins see all orders across customers.
       orders = await listOrders();
     } else {
       orders = await OrderModel.find({ userEmail: principal.email }).sort({ createdAt: -1 }).exec();

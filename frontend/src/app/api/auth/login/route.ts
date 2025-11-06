@@ -16,7 +16,17 @@ export async function POST(request: Request) {
       return NextResponse.json(data, { status: response.status });
     }
 
-    await setSessionCookies({ token: data.token, user: data.user });
+    if (!data.token || !data.refreshToken || !data.user) {
+      console.error("[frontend] Login response missing token data");
+      return NextResponse.json({ message: "Invalid authentication response" }, { status: 502 });
+    }
+
+    // Persist session for subsequent API calls within the app router.
+    await setSessionCookies({
+      token: data.token as string,
+      refreshToken: data.refreshToken as string,
+      user: data.user,
+    });
 
     return NextResponse.json({ user: data.user });
   } catch (error) {

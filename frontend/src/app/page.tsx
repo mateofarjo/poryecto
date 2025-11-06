@@ -1,33 +1,57 @@
 ﻿import Link from "next/link";
+import { ShieldCheck, UsersRound, Package2, BarChart3 } from "lucide-react";
 import { getSessionFromCookies } from "@/lib/session";
 
+const features = [
+  {
+    icon: UsersRound,
+    title: "Usuarios bajo control",
+    description: "Alta, activacion y suspension desde un panel sencillo para el equipo interno.",
+  },
+  {
+    icon: Package2,
+    title: "Catalogo y pedidos",
+    description: "Lista de articulos, stock en tiempo real y pedidos con calculo automatico de importes.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Autenticacion segura",
+    description: "Accesos administrados con JWT y sesiones protegidas en cookies httpOnly.",
+  },
+  {
+    icon: BarChart3,
+    title: "Indicadores claros",
+    description: "Tableros con metricas, historial de pedidos y sugerencias personalizadas.",
+  },
+];
+
 export default async function HomePage() {
+  // Determine default CTA based on current session.
   const session = await getSessionFromCookies();
   const isAuthenticated = Boolean(session);
   const isAdmin = session?.user.role === "admin";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-12 px-6 py-16">
-      <header className="flex flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-8 shadow-lg shadow-indigo-900/20">
-        <div className="flex items-center justify-between gap-4">
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-16 px-6 py-20">
+      <header className="flex flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-10 shadow-lg shadow-indigo-900/20">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-indigo-400">UCH-FyD Cloud Portal</p>
-            <h1 className="mt-2 text-4xl font-semibold text-white md:text-5xl">
-              Gestión unificada de usuarios, artículos y pedidos
-            </h1>
+            <p className="text-xs uppercase tracking-[0.35em] text-indigo-400">UCH-FyD</p>
+            <h1 className="mt-1 text-4xl font-semibold text-white md:text-5xl">Portal para clientes y administradores</h1>
           </div>
-          <span className="hidden rounded-full border border-indigo-600/40 bg-indigo-500/10 px-4 py-2 text-xs font-medium text-indigo-300 md:inline-flex">
-            Cloud Ready
+          <span className="rounded-full border border-indigo-600/40 bg-indigo-500/10 px-4 py-1 text-xs font-medium text-indigo-300">
+            Version demo
           </span>
         </div>
-        <p className="max-w-3xl text-balance text-lg text-slate-300">
-          Plataforma web responsiva para que los clientes de UCH-FyD puedan consultar el catálogo, generar pedidos y para que el equipo administrativo administre usuarios de forma segura.
+        <p className="max-w-2xl text-base text-slate-300 md:text-lg">
+          La app unifica la gestion de usuarios, catalogo y pedidos. Los clientes cargan compras, el equipo interno
+          controla activaciones y stock, y todos ven informacion consistente.
         </p>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
-          <span className="rounded-full border border-slate-700 px-3 py-1">Next.js 15</span>
-          <span className="rounded-full border border-slate-700 px-3 py-1">Servicios REST Node.js</span>
-          <span className="rounded-full border border-slate-700 px-3 py-1">MongoDB</span>
-          <span className="rounded-full border border-slate-700 px-3 py-1">Autenticación con JWT</span>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 md:text-sm">
+          <span className="rounded-full border border-slate-700 px-3 py-1">Next.js + React 19</span>
+          <span className="rounded-full border border-slate-700 px-3 py-1">Express + MongoDB</span>
+          <span className="rounded-full border border-slate-700 px-3 py-1">JWT Sharing</span>
+          <span className="rounded-full border border-slate-700 px-3 py-1">Docker Ready</span>
         </div>
         <div className="flex flex-wrap gap-4">
           {isAuthenticated ? (
@@ -43,7 +67,7 @@ export default async function HomePage() {
                 href="/login"
                 className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400"
               >
-                Iniciar sesión
+                Iniciar sesion
               </Link>
               <Link
                 href="/register"
@@ -56,51 +80,21 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <article className="flex h-full flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <h2 className="text-xl font-semibold text-white">Arquitectura modular</h2>
-          <p className="text-sm leading-relaxed text-slate-300">
-            Dos microservicios Node.js independientes: uno dedicado a autenticación y otro a catálogo y pedidos. Ambos exponen APIs REST y están listos para desplegarse en infraestructura cloud separada.
-          </p>
-          <ul className="mt-auto space-y-2 text-sm text-slate-400">
-            <li>- Aislamiento de usuarios sobre MongoDB</li>
-            <li>- Control de stock con operaciones atómicas</li>
-            <li>- JWT reutilizable entre servicios</li>
-          </ul>
-        </article>
-        <article className="flex h-full flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <h2 className="text-xl font-semibold text-white">Ciclo de vida del usuario</h2>
-          <p className="text-sm leading-relaxed text-slate-300">
-            Los clientes se registran y quedan en estado inactivo hasta que un administrador apruebe su acceso. Se incorpora un panel administrativo para activar o suspender usuarios.
-          </p>
-          <ul className="mt-auto space-y-2 text-sm text-slate-400">
-            <li>- Registro con validaciones y mensajes claros</li>
-            <li>- Activación / suspensión desde un panel protegido</li>
-            <li>- Seguimiento auditado por timestamps</li>
-          </ul>
-        </article>
-        <article className="flex h-full flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <h2 className="text-xl font-semibold text-white">Experiencia de pedidos</h2>
-          <p className="text-sm leading-relaxed text-slate-300">
-            Los usuarios autenticados visualizan el catálogo disponible, generan pedidos y consultan su historial. El sistema asegura que no existan conflictos de stock en operaciones concurrentes.
-          </p>
-          <ul className="mt-auto space-y-2 text-sm text-slate-400">
-            <li>- Pedidos con cálculo automático de importes</li>
-            <li>- Historial filtrado por usuario</li>
-            <li>- Notificaciones en tiempo real vía UI</li>
-          </ul>
-        </article>
-        <article className="flex h-full flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <h2 className="text-xl font-semibold text-white">Preparada para despliegue cloud</h2>
-          <p className="text-sm leading-relaxed text-slate-300">
-            Configuración mediante variables de entorno y separación de responsabilidades permiten escalar horizontalmente cada servicio según la demanda.
-          </p>
-          <ul className="mt-auto space-y-2 text-sm text-slate-400">
-            <li>- Variables `.env.example` para cada servicio</li>
-            <li>- Scripts de build y start diferenciados</li>
-            <li>- Sin acoplamiento a Docker: fácil verificación local</li>
-          </ul>
-        </article>
+      <section className="grid gap-4 md:grid-cols-2">
+        {features.map((feature) => (
+          <article
+            key={feature.title}
+            className="flex h-full flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/40 p-6"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-500/30 bg-indigo-500/10">
+                <feature.icon className="h-5 w-5 text-indigo-300" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">{feature.title}</h2>
+            </div>
+            <p className="text-sm leading-relaxed text-slate-300">{feature.description}</p>
+          </article>
+        ))}
       </section>
     </main>
   );

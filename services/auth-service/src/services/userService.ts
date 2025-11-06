@@ -1,7 +1,12 @@
 ﻿import { Types } from "mongoose";
 import { UserDocument, UserStatus } from "../models/User";
 import { hashPassword, verifyPassword } from "../utils/password";
-import { signAuthToken, AuthTokenPayload } from "../utils/jwt";
+import {
+  signAuthToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  AuthTokenPayload,
+} from "../utils/jwt";
 import { env } from "../config/env";
 import { userRepository } from "../repositories/UserRepository";
 
@@ -11,9 +16,49 @@ interface RegisterInput {
   password: string;
 }
 
-interface LoginResult {
+interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserDocument["role"];
+  status: UserDocument["status"];
+}
+
+export interface LoginResult {
   token: string;
-  user: Pick<UserDocument, "id" | "name" | "email" | "role" | "status">;
+  refreshToken: string;
+  user: SessionUser;
+}
+
+// Map DB user into token payload to keep issued tokens consistent.
+function buildAuthPayload(user: UserDocument): AuthTokenPayload {
+  return {
+    sub: user.id,
+    role: user.role,
+    email: user.email,
+    name: user.name,
+  };
+}
+
+function toSessionUser(user: UserDocument): SessionUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+  };
+}
+
+// Issue both access and refresh tokens for the consumer.
+function buildLoginResult(user: UserDocument): LoginResult {
+  const payload = buildAuthPayload(user);
+
+  return {
+    token: signAuthToken(payload),
+    refreshToken: signRefreshToken(payload),
+    user: toSessionUser(user),
+  };
 }
 
 export async function registerUser({ name, email, password }: RegisterInput): Promise<UserDocument> {
@@ -36,25 +81,30 @@ export async function authenticateUser(email: string, password: string): Promise
     throw new Error("INVALID_CREDENTIALS");
   }
 
-  const payload: AuthTokenPayload = {
-    sub: user.id,
-    role: user.role,
-    email: user.email,
-    name: user.name,
-  };
+  return buildLoginResult(user);
+}
 
-  const token = signAuthToken(payload);
+export async function refreshUserSession(refreshToken: string): Promise<LoginResult> {
+  let payload: AuthTokenPayload;
 
-  return {
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    },
-  };
+  try {
+    // Validate signature and expiry first to avoid unnecessary DB lookups.
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  const user = await userRepository.findById(payload.sub);
+
+  if (!user) {
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  if (user.status !== "active") {
+    throw new Error("USER_INACTIVE");
+  }
+
+  return buildLoginResult(user);
 }
 
 export async function listUsers(status?: UserStatus): Promise<UserDocument[]> {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticateUser, registerUser } from '../services/userService';
+import { authenticateUser, refreshUserSession, registerUser } from '../services/userService';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -16,6 +16,9 @@ const loginSchema = z.object({
   password: z.string().min(8)
 });
 
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1)
+});
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = registerSchema.parse(req.body);
@@ -54,6 +57,30 @@ router.post('/login', async (req, res) => {
     }
 
     console.error('[auth-service] Login error', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = refreshSchema.parse(req.body);
+    // Issue a new access token pair using the long-lived credential.
+    const result = await refreshUserSession(refreshToken);
+    return res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Validation error', details: error.flatten() });
+    }
+
+    if ((error as Error).message === 'USER_INACTIVE') {
+      return res.status(403).json({ message: 'User account inactive' });
+    }
+
+    if ((error as Error).message === 'INVALID_REFRESH_TOKEN') {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    console.error('[auth-service] Refresh error', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

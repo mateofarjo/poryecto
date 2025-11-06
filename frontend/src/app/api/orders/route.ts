@@ -8,6 +8,7 @@ export async function GET() {
   });
 
   const data = await response.json().catch(() => ({}));
+  // Bubble through the upstream status so components can react accordingly.
   return NextResponse.json(data, { status: response.status });
 }
 
@@ -20,5 +21,6 @@ export async function POST(request: Request) {
   });
 
   const data = await response.json().catch(() => ({}));
+  // Reuse the service's HTTP code to surface validation or stock errors.
   return NextResponse.json(data, { status: response.status });
 }

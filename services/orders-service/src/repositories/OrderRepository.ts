@@ -4,6 +4,7 @@ import { OrderModel, OrderDocument } from "../models/Order";
 class OrderRepository {
   private static instance: OrderRepository;
 
+  // Singleton keeps counters and sessions aligned across requests.
   static getInstance(): OrderRepository {
     if (!OrderRepository.instance) {
       OrderRepository.instance = new OrderRepository();
@@ -27,6 +28,50 @@ class OrderRepository {
 
   async listByUserEmail(email: string): Promise<OrderDocument[]> {
     return OrderModel.find({ userEmail: email }).sort({ createdAt: -1 }).exec();
+  }
+
+  async aggregateUserArticleStats(
+    userEmail: string,
+    limit = 5
+  ): Promise<Array<{ code: string; totalQuantity: number; lastOrderDate: Date }>> {
+    const aggregation = await OrderModel.aggregate<{
+      _id: string;
+      totalQuantity: number;
+      lastOrderDate: Date;
+    }>([
+      { $match: { userEmail } },
+      {
+        $group: {
+          _id: "$articleCode",
+          totalQuantity: { $sum: "$quantity" },
+          lastOrderDate: { $max: "$createdAt" },
+        },
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: limit },
+    ]).exec();
+
+    return aggregation.map((item) => ({
+      code: item._id,
+      totalQuantity: item.totalQuantity,
+      lastOrderDate: item.lastOrderDate,
+    }));
+  }
+
+  async aggregateGlobalTopArticles(limit = 5): Promise<Array<{ code: string; totalQuantity: number }>> {
+    const aggregation = await OrderModel.aggregate<{
+      _id: string;
+      totalQuantity: number;
+    }>([
+      { $group: { _id: "$articleCode", totalQuantity: { $sum: "$quantity" } } },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: limit },
+    ]).exec();
+
+    return aggregation.map((item) => ({
+      code: item._id,
+      totalQuantity: item.totalQuantity,
+    }));
   }
 }
 

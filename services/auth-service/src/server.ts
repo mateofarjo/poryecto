@@ -14,6 +14,7 @@ async function bootstrap() {
   await connectToDatabase();
   await ensureAdminUser();
 
+  // Protect the service from broad abusive traffic.
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 300,
@@ -21,9 +22,10 @@ async function bootstrap() {
     legacyHeaders: false,
   });
 
+  // Applies tighter limits on the authentication surface.
   const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
+    windowMs: env.authRateLimitWindowMs,
+    max: env.authRateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
   });

@@ -33,3 +33,10 @@ export interface Order {
   totalAmount: number;
   createdAt: string;
 }
+
+export interface Recommendation {
+  article: Article;
+  score: number;
+  reason: string;
+  tags: string[];
+}

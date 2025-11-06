@@ -3,6 +3,7 @@
 class CounterRepository {
   private static instance: CounterRepository;
 
+  // Shared counter instance keeps numbering monotonic across requests.
   static getInstance(): CounterRepository {
     if (!CounterRepository.instance) {
       CounterRepository.instance = new CounterRepository();

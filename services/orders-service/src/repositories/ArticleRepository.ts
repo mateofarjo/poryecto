@@ -4,6 +4,7 @@ import { Types } from "mongoose";
 class ArticleRepository {
   private static instance: ArticleRepository;
 
+  // Exposes a single shared repository to keep model state consistent.
   static getInstance(): ArticleRepository {
     if (!ArticleRepository.instance) {
       ArticleRepository.instance = new ArticleRepository();
@@ -17,6 +18,12 @@ class ArticleRepository {
 
   async list(): Promise<ArticleDocument[]> {
     return ArticleModel.find().sort({ code: 1 }).exec();
+  }
+
+  async findByCodes(codes: string[]): Promise<ArticleDocument[]> {
+    return ArticleModel.find({ code: { $in: codes.map((code) => code.toUpperCase()) } })
+      .sort({ code: 1 })
+      .exec();
   }
 
   async findByCode(code: string): Promise<ArticleDocument | null> {

@@ -7,11 +7,13 @@ import { connectToDatabase } from "./config/db";
 import { env } from "./config/env";
 import articleRoutes from "./routes/articleRoutes";
 import orderRoutes from "./routes/orderRoutes";
+import recommendationRoutes from "./routes/recommendationRoutes";
 import { logger } from "./utils/logger";
 
 async function bootstrap() {
   await connectToDatabase();
 
+  // Throttle abusive clients without affecting legitimate bursts.
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 500,
@@ -33,6 +35,7 @@ async function bootstrap() {
 
   app.use("/api/articles", articleRoutes);
   app.use("/api/orders", orderRoutes);
+  app.use("/api/recommendations", recommendationRoutes);
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     logger.error({ err }, "Unhandled error");

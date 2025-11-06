@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Combobox } from "@headlessui/react";
-import { Package2, ShoppingCart, TrendingUp, Users } from "lucide-react";
+import { Package2, ShoppingCart, Sparkles, TrendingUp, Users } from "lucide-react";
 import { useDashboard } from "@/context/DashboardContext";
 import type { SessionUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -100,8 +100,65 @@ function PopularArticles({ articles }: { articles: Array<{ name: string; total: 
         >
           <div>
             <p className="font-medium text-slate-100">{item.name}</p>
-            <p className="text-xs text-slate-400">{item.units} unidades · {item.total.toLocaleString("es-AR", { style: "currency", currency: "ARS" })}</p>
+            <p className="text-xs text-slate-400">
+              {item.units} unidades - {item.total.toLocaleString("es-AR", { style: "currency", currency: "ARS" })}
+            </p>
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type RecommendationListProps = {
+  items: Array<{ id: string; name: string; code: string; price: number; score: number; reason: string; tags: string[] }>;
+  loading: boolean;
+  onSelect: (code: string) => void;
+};
+
+function RecommendationsList({ items, loading, onSelect }: RecommendationListProps) {
+  if (loading) {
+    return <SkeletonCard className="h-40" />;
+  }
+
+  if (items.length === 0) {
+    return <EmptyState message="Todavia no hay recomendaciones disponibles." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div
+          key={item.id}
+          className="rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-4 text-sm text-slate-200"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium text-slate-100">{item.name}</p>
+              <p className="text-xs text-slate-400">{item.code}</p>
+            </div>
+            <span className="text-xs text-slate-400">{formatCurrency(item.price)}</span>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">{item.reason}</p>
+          {item.tags.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] text-indigo-200"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onSelect(item.code)}
+            className="mt-3 inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-medium text-indigo-200 transition hover:border-indigo-300 hover:text-indigo-100"
+          >
+            Usar en pedido
+          </button>
         </div>
       ))}
     </div>
@@ -113,12 +170,21 @@ function formatCurrency(value: number) {
 }
 
 export function DashboardClient({ user }: Props) {
-  const { articles, orders, articlesLoading, ordersLoading, refresh } = useDashboard();
+  const {
+    articles,
+    orders,
+    recommendations,
+    articlesLoading,
+    ordersLoading,
+    recommendationsLoading,
+    refresh,
+  } = useDashboard();
   const {
     control,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { isSubmitting },
   } = useForm<QuickOrderFormValues>({
     defaultValues: {
@@ -130,9 +196,27 @@ export function DashboardClient({ user }: Props) {
 
   const selectedCode = watch("articleCode");
   const quantity = watch("quantity") || 1;
-  const selectedArticle = useMemo(() => articles.find((article) => article.code === selectedCode) ?? null, [articles, selectedCode]);
-  const isRefreshing = articlesLoading || ordersLoading;
+  const selectedArticle = useMemo(
+    () => articles.find((article) => article.code === selectedCode) ?? null,
+    [articles, selectedCode]
+  );
+  const isRefreshing = articlesLoading || ordersLoading || recommendationsLoading;
 
+  const personalizedRecommendations = useMemo(
+    () =>
+      recommendations.map((item) => ({
+        id: item.article._id,
+        name: item.article.name,
+        code: item.article.code,
+        price: item.article.unitPrice,
+        score: item.score,
+        reason: item.reason,
+        tags: item.tags,
+      })),
+    [recommendations]
+  );
+
+  // Allows power users to create an order with minimal input.
   const quickOrderSubmit = async (values: QuickOrderFormValues) => {
     if (!values.articleCode) {
       toast.error("Selecciona un articulo");
@@ -173,7 +257,7 @@ export function DashboardClient({ user }: Props) {
   const totalOrders = orders.length;
   const totalAmount = orders.reduce((acc, order) => acc + order.totalAmount, 0);
   const totalUnitsSold = orders.reduce((acc, order) => acc + order.quantity, 0);
-  const availableStock = articles.reduce((acc, article) => acc + article.stock, 0);
+  const availableArticles = articles.length;
 
   const ordersChartData = useMemo(() => {
     const map = new Map<string, number>();
@@ -214,8 +298,8 @@ export function DashboardClient({ user }: Props) {
       <header className="flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-indigo-400">Panel de pedidos</p>
-            <h1 className="mt-2 text-3xl font-semibold text-white">Hola {user.name.split(" ")[0]}, bienvenido!</h1>
+            <p className="text-xs uppercase tracking-[0.3em] text-indigo-400">Panel de trabajo</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white">Hola {user.name.split(" ")[0]}, esto es lo nuevo</h1>
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">
@@ -225,193 +309,212 @@ export function DashboardClient({ user }: Props) {
           </div>
         </div>
         <p className="text-sm text-slate-400">
-          Consulta metricas en tiempo real, genera pedidos rapidos y visualiza tu historial reciente.
+          Consulta metricas, obten sugerencias y carga pedidos sin salir de este panel.
         </p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="Pedidos" value={`${totalOrders}`} subtitle="Total registrados" icon={<ShoppingCart className="h-5 w-5" />} />
-        <StatsCard title="Facturado" value={formatCurrency(totalAmount)} subtitle="Importe total" icon={<TrendingUp className="h-5 w-5" />} />
-        <StatsCard title="Stock disponible" value={`${availableStock}`} subtitle="Unidades sumadas" icon={<Package2 className="h-5 w-5" />} />
-        <StatsCard title="Unidades vendidas" value={`${totalUnitsSold}`} subtitle="Acumulado historico" icon={<Users className="h-5 w-5" />} />
+        <StatsCard title="Pedidos" value={`${totalOrders}`} subtitle="Registrados en tu cuenta" icon={<ShoppingCart className="h-5 w-5" />} />
+        <StatsCard title="Facturado" value={formatCurrency(totalAmount)} subtitle="Importe acumulado" icon={<TrendingUp className="h-5 w-5" />} />
+        <StatsCard title="Articulos disponibles" value={`${availableArticles}`} subtitle="Activos en el catalogo" icon={<Package2 className="h-5 w-5" />} />
+        <StatsCard title="Unidades pedidas" value={`${totalUnitsSold}`} subtitle="Sumadas en tus pedidos" icon={<Users className="h-5 w-5" />} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Evolucion de ventas</h2>
-            <button
-              type="button"
-              disabled={isRefreshing}
-              onClick={() => void refresh()}
-              className="text-xs text-indigo-300 transition hover:text-indigo-100 disabled:opacity-60"
-            >
-              {isRefreshing ? "Actualizando..." : "Actualizar datos"}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">Importe total de pedidos por fecha.</p>
-          {ordersLoading ? <SkeletonCard className="mt-6 h-64" /> : <OrdersChart data={ordersChartData} />}
-        </section>
-
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <h2 className="text-xl font-semibold text-white">Articulos destacados</h2>
-          <p className="mt-1 text-xs text-slate-500">Basado en unidades vendidas.</p>
-          {ordersLoading ? <SkeletonCard className="mt-6 h-64" /> : <PopularArticles articles={popularArticles} />}
-        </section>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Mis pedidos</h2>
-            <span className="text-xs text-slate-400">{orders.length} registros</span>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">Listado de tus ultimas operaciones.</p>
-          <div className="mt-4 space-y-3">
-            {ordersLoading ? (
-              <>
-                <SkeletonCard className="h-20" />
-                <SkeletonCard className="h-20" />
-                <SkeletonCard className="h-20" />
-              </>
-            ) : recentOrders.length === 0 ? (
-              <EmptyState message="Todavia no registraste pedidos." />
-            ) : (
-              recentOrders.map((order) => (
-                <article
-                  key={order._id}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3 text-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-slate-100">{order.orderNumber}</p>
-                    <p className="text-xs text-slate-400">{new Date(order.date ?? order.createdAt ?? Date.now()).toLocaleString("es-AR")}</p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-400">
-                    <span>Cliente: {order.customerName}</span>
-                    <span>Articulo: {order.articleCode}</span>
-                    <span>Cantidad: {order.quantity}</span>
-                    <span>Importe: {formatCurrency(order.totalAmount)}</span>
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="h-fit rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
-          <h2 className="text-xl font-semibold text-white">Nuevo pedido</h2>
-          <p className="mt-1 text-xs text-slate-500">Carga rapida con busqueda de articulos.</p>
-
-          <form className="mt-4 space-y-5" onSubmit={handleSubmit(quickOrderSubmit)}>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-300">Articulo</label>
-              <Controller
-                name="articleCode"
-                control={control}
-                render={({ field }) => (
-                  <Combobox value={field.value} onChange={field.onChange} disabled={articlesLoading}>
-                    <div className="relative">
-                      <Combobox.Input
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-60"
-                        displayValue={(code: string) => articles.find((item) => item.code === code)?.name ?? ""}
-                        placeholder="Buscar articulo..."
-                      />
-                      <Combobox.Options className="absolute z-10 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-700 bg-slate-950/90 text-sm shadow-xl shadow-indigo-950/30">
-                        {articlesLoading ? (
-                          <div className="px-4 py-3 text-slate-400">Cargando articulos...</div>
-                        ) : articles.length === 0 ? (
-                          <div className="px-4 py-3 text-slate-400">No hay articulos cargados.</div>
-                        ) : (
-                          articles.map((article) => (
-                            <Combobox.Option
-                              key={article._id}
-                              value={article.code}
-                              className={({ active }) =>
-                                cn(
-                                  "flex items-center justify-between px-4 py-3 transition",
-                                  active ? "bg-indigo-500/10 text-indigo-100" : "text-slate-200"
-                                )
-                              }
-                            >
-                              <div>
-                                <p className="font-medium">{article.name}</p>
-                                <p className="text-xs text-slate-400">{article.code}</p>
-                              </div>
-                              <p className="text-xs text-slate-300">Stock: {article.stock}</p>
-                            </Combobox.Option>
-                          ))
-                        )}
-                      </Combobox.Options>
-                    </div>
-                  </Combobox>
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-300" htmlFor="customerName">
-                Nombre del cliente
-              </label>
-              <Controller
-                name="customerName"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    id="customerName"
-                    placeholder="Ej: Drogueria Central"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
-                  />
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-300" htmlFor="quantity">
-                Cantidad
-              </label>
-              <Controller
-                name="quantity"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    id="quantity"
-                    type="number"
-                    min={1}
-                    onChange={(event) => field.onChange(Number(event.target.value))}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
-                  />
-                )}
-              />
-              {selectedArticle ? (
-                <p className="text-xs text-slate-400">
-                  Stock disponible: {selectedArticle.stock} · Precio unitario: {formatCurrency(selectedArticle.unitPrice)}
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500">Selecciona un articulo para ver el stock disponible.</p>
-              )}
-            </div>
-
-            {selectedArticle ? (
-              <div className="rounded-2xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-3 text-xs text-indigo-200">
-                Total estimado: {formatCurrency(selectedArticle.unitPrice * Number(quantity))}
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-6">
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Recomendados para ti</h2>
+                <p className="text-xs text-slate-500">Articulos relacionados con tus pedidos recientes.</p>
               </div>
-            ) : null}
+              <Sparkles className="h-5 w-5 text-indigo-300" />
+            </div>
+            <div className="mt-4">
+              <RecommendationsList
+                items={personalizedRecommendations}
+                loading={recommendationsLoading}
+                onSelect={(code) => setValue("articleCode", code, { shouldValidate: true })}
+              />
+            </div>
+          </section>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || articlesLoading}
-              className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Registrando pedido..." : "Confirmar pedido"}
-            </button>
-          </form>
-        </section>
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Evolucion de ventas</h2>
+              <button
+                type="button"
+                disabled={isRefreshing}
+                onClick={() => void refresh()}
+                className="text-xs text-indigo-300 transition hover:text-indigo-100 disabled:opacity-60"
+              >
+                {isRefreshing ? "Actualizando..." : "Actualizar datos"}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Suma diaria de tus pedidos.</p>
+            {ordersLoading ? <SkeletonCard className="mt-6 h-64" /> : <OrdersChart data={ordersChartData} />}
+          </section>
+        </div>
+
+        <div className="space-y-6">
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
+            <h2 className="text-xl font-semibold text-white">Articulos destacados</h2>
+            <p className="mt-1 text-xs text-slate-500">Basado en unidades vendidas por todos los clientes.</p>
+            {ordersLoading ? <SkeletonCard className="mt-6 h-64" /> : <PopularArticles articles={popularArticles} />}
+          </section>
+
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
+            <h2 className="text-xl font-semibold text-white">Nuevo pedido</h2>
+            <p className="mt-1 text-xs text-slate-500">Selecciona un articulo y completa los datos del cliente.</p>
+
+            <form className="mt-4 space-y-5" onSubmit={handleSubmit(quickOrderSubmit)}>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300">Articulo</label>
+                <Controller
+                  name="articleCode"
+                  control={control}
+                  render={({ field }) => (
+                    <Combobox value={field.value} onChange={field.onChange} disabled={articlesLoading}>
+                      <div className="relative">
+                        <Combobox.Input
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-60"
+                          displayValue={(code: string) => articles.find((item) => item.code === code)?.name ?? ""}
+                          placeholder="Buscar articulo..."
+                        />
+                        <Combobox.Options className="absolute z-10 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-700 bg-slate-950/90 text-sm shadow-xl shadow-indigo-950/30">
+                          {articlesLoading ? (
+                            <div className="px-4 py-3 text-slate-400">Cargando articulos...</div>
+                          ) : articles.length === 0 ? (
+                            <div className="px-4 py-3 text-slate-400">No hay articulos cargados.</div>
+                          ) : (
+                            articles.map((article) => (
+                              <Combobox.Option
+                                key={article._id}
+                                value={article.code}
+                                className={({ active }) =>
+                                  cn(
+                                    "flex items-center justify-between px-4 py-3 transition",
+                                    active ? "bg-indigo-500/10 text-indigo-100" : "text-slate-200"
+                                  )
+                                }
+                              >
+                                <div>
+                                  <p className="font-medium">{article.name}</p>
+                                  <p className="text-xs text-slate-400">{article.code}</p>
+                                </div>
+                                <p className="text-xs text-slate-300">Stock: {article.stock}</p>
+                              </Combobox.Option>
+                            ))
+                          )}
+                        </Combobox.Options>
+                      </div>
+                    </Combobox>
+                  )}
+                />
+              </div> 
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300" htmlFor="customerName">
+                  Nombre del cliente
+                </label>
+                <Controller
+                  name="customerName"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      id="customerName"
+                      placeholder="Ej: Drogueria Central"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300" htmlFor="quantity">
+                  Cantidad
+                </label>
+                <Controller
+                  name="quantity"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      id="quantity"
+                      type="number"
+                      min={1}
+                      onChange={(event) => field.onChange(Number(event.target.value))}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
+                    />
+                  )}
+                />
+                {selectedArticle ? (
+                  <p className="text-xs text-slate-400">
+                    Stock disponible: {selectedArticle.stock}  -  Precio unitario: {formatCurrency(selectedArticle.unitPrice)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">Selecciona un articulo para ver el stock disponible.</p>
+                )}
+              </div>
+ 
+              {selectedArticle ? (
+                <div className="rounded-2xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-3 text-xs text-indigo-200">
+                  Total estimado: {formatCurrency(selectedArticle.unitPrice * Number(quantity))}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isSubmitting || articlesLoading}
+                className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Registrando pedido..." : "Confirmar pedido"}
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
+
+      <section className="rounded-3xl border border-slate-800 bg-slate-900/30 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white">Mis pedidos</h2>
+          <span className="text-xs text-slate-400">{orders.length} registros</span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Listado de tus ultimas operaciones.</p>
+        <div className="mt-4 space-y-3">
+          {ordersLoading ? (
+            <>
+              <SkeletonCard className="h-20" />
+              <SkeletonCard className="h-20" />
+              <SkeletonCard className="h-20" />
+            </>
+          ) : recentOrders.length === 0 ? (
+            <EmptyState message="Todavia no registraste pedidos." />
+          ) : (
+            recentOrders.map((order) => (
+              <article
+                key={order._id}
+                className="rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3 text-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-slate-100">{order.orderNumber}</p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(order.date ?? order.createdAt ?? Date.now()).toLocaleString("es-AR")}
+                  </p>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-400">
+                  <span>Cliente: {order.customerName}</span>
+                  <span>Articulo: {order.articleCode}</span>
+                  <span>Cantidad: {order.quantity}</span>
+                  <span>Importe: {formatCurrency(order.totalAmount)}</span>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
     </section>
   );
 }
-
-
 

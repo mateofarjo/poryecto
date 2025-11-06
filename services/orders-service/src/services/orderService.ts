@@ -17,6 +17,7 @@ export async function createOrder(input: OrderInput): Promise<OrderDocument> {
 
   try {
     let createdOrder: OrderDocument | null = null;
+    // Reserve stock and create the order atomically to prevent overselling.
     await session.withTransaction(async () => {
       const article = await articleRepository.atomicUpdateStock(input.articleCode, input.quantity, session);
 

@@ -1,5 +1,6 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { getServerEnv } from "@/lib/env";
+import { refreshSessionFromCookies, ACCESS_TOKEN_COOKIE } from "@/lib/session";
 
 interface FetchOptions extends RequestInit {
   requireAuth?: boolean;
@@ -21,20 +22,47 @@ function buildHeaders(init?: RequestInit, token?: string): Headers {
 
 async function makeRequest(baseUrl: string, path: string, options?: FetchOptions) {
   const { requireAuth = false, ...init } = options ?? {};
+  const requestUrl = `${baseUrl}${path}`;
+
+  const buildInit = (token?: string): RequestInit => ({
+    ...init,
+    headers: buildHeaders(init, token),
+  });
+
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  let token = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
   if (requireAuth && !token) {
-    return new Response("Unauthorized", { status: 401 });
+    // Attempt a silent refresh before declaring the request unauthorized.
+    const refreshed = await refreshSessionFromCookies();
+    token = refreshed?.token;
+
+    if (!token) {
+      return new Response("Unauthorized", { status: 401 });
+    }
   }
 
-  const headers = buildHeaders(init, token);
-
-  return fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers,
+  let requestInit = buildInit(token);
+  let response = await fetch(requestUrl, {
+    ...requestInit,
     cache: "no-store",
   });
+
+  if (requireAuth && (response.status === 401 || response.status === 403)) {
+    // Token might have expired mid-flight; refresh once and retry.
+    const refreshed = await refreshSessionFromCookies();
+
+    if (refreshed?.token) {
+      token = refreshed.token;
+      requestInit = buildInit(token);
+      response = await fetch(requestUrl, {
+        ...requestInit,
+        cache: "no-store",
+      });
+    }
+  }
+
+  return response;
 }
 
 const env = () => getServerEnv();
